@@ -1,0 +1,133 @@
+---
+## Front matter
+title: "Отчёт по лабораторной работе №6"
+subtitle: "Мандатное разграничение прав в Linux"
+author: "Ханина Людмила Константиновна"
+
+## Generic otions
+lang: ru-RU
+toc-title: "Содержание"
+
+## Bibliography
+bibliography: bib/cite.bib
+csl: pandoc/csl/gost-r-7-0-5-2008-numeric.csl
+
+## Pdf output format
+toc: true # Table of contents
+toc-depth: 2
+lof: true # List of figures
+lot: true # List of tables
+fontsize: 12pt
+linestretch: 1.5
+papersize: a4
+documentclass: scrreprt
+## I18n polyglossia
+polyglossia-lang:
+  name: russian
+  options:
+	- spelling=modern
+	- babelshorthands=true
+polyglossia-otherlangs:
+  name: english
+## I18n babel
+babel-lang: russian
+babel-otherlangs: english
+## Fonts
+mainfont: IBM Plex Serif
+romanfont: IBM Plex Serif
+sansfont: IBM Plex Sans
+monofont: IBM Plex Mono
+mathfont: STIX Two Math
+mainfontoptions: Ligatures=Common,Ligatures=TeX,Scale=0.94
+romanfontoptions: Ligatures=Common,Ligatures=TeX,Scale=0.94
+sansfontoptions: Ligatures=Common,Ligatures=TeX,Scale=MatchLowercase,Scale=0.94
+monofontoptions: Scale=MatchLowercase,Scale=0.94,FakeStretch=0.9
+mathfontoptions:
+## Biblatex
+biblatex: true
+biblio-style: "gost-numeric"
+biblatexoptions:
+  - parentracker=true
+  - backend=biber
+  - hyperref=auto
+  - language=auto
+  - autolang=other*
+  - citestyle=gost-numeric
+## Pandoc-crossref LaTeX customization
+figureTitle: "Рис."
+tableTitle: "Таблица"
+listingTitle: "Листинг"
+lofTitle: "Список иллюстраций"
+lotTitle: "Список таблиц"
+lolTitle: "Листинги"
+## Misc options
+indent: true
+header-includes:
+  - \usepackage{indentfirst}
+  - \usepackage{float} # keep figures where there are in the text
+  - \floatplacement{figure}{H} # keep figures where there are in the text
+---
+
+# Цель работы
+
+Развить навыки администрирования ОС Linux. Получить первое практическое знакомство с технологией SELinux. Проверить работу SELinux на практике совместно с веб-сервером Apache.
+
+# Выполнение лабораторной работы
+
+1) Входим в систему под своей учетной записью и убеждаемся, что SELinux работает в режиме enforcing политики targeted:
+![Проверка режима enforcing политики targeted](images/1.png){ #fig:001 }
+
+2) Обращаемся с помощью браузера к веб-серверу и убеждаемся, что последний работает:
+![Проверка работы веб-сервера](images/2.png){ #fig:002 }
+
+3) Определяем контекст безопасности веб-сервера Apache:
+![Контекст безопасности веб-сервера Apache](images/3.png){ #fig:003 }
+
+4) Посмотрим текущее состояние переключателей SELinux для Apache, многие из переключателей находятся в положении “off”:
+![Текущее состояние переключателей SELinux](images/4.png){ #fig:004 }
+
+5) Посмотрим статистику по политике. Множество пользователей - 8, ролей - 14, типов 5100:
+![Статистика по политике](images/5.png){ #fig:005 }
+
+6) Посмотрим файлы и поддиректории, находящиеся в директории /var/www. Определим, что в данной директории файлов нет. Только владелец или суперпользователь может создавать файлы в директории /var/www/html:
+![Просмотр файлов и поддиректориий в директории /var/www](images/6.png){ #fig:006 }
+
+7) От имени суперпользователя создаём html-файл /var/www/html/test.html. Контекст созданного файла - httpd_sys_content_t:
+![Создание файла /var/www/html/test.html](images/7.png){ #fig:007 }
+
+8) Обращаемся к файлу через веб-сервер, введя в браузере адрес “http://127.0.0.1/test.html”. Файл был успешно отображен:
+![Обращение к файлу через веб-сервер](images/8.png){ #fig:008 }
+
+9) Изучив справку man httpd_selinux, выясняем, что для httpd определены следующие контексты файлов: httpd_sys_content_t, httpd_sys_script_exec_t, httpd_sys_script_ro_t, httpd_sys_script_rw_t, httpd_sys_script_ra_t, httpd_unconfined_script_exec_t. Контекст моего файла - httpd_sys_content_t (в таком случае содержимое должно быть доступно для всех скриптов httpd и для самого демона). Изменяем контекст файла на samba_share_t и проверяем, что контекст поменялся:
+![Изменение контекста](images/9.png){ #fig:009 }
+
+10) Попробуем еще раз получить доступ к файлу через веб-сервер, введя в браузере адрес “http://127.0.0.1/test.html”, и получаем сообщение об ошибке (т.к. к установленному ранее контексту процесс httpd не имеет доступа):
+![Обращение к файлу через веб-сервер](images/10.png){ #fig:010 }
+
+11) Командой ```ls -l /var/www/html/test.html``` убеждаемся, что читать данный файл может любой пользователь. Просматриваем системный лог-файл веб-сервера Apache:
+![Просмотр log-файла](images/11.png){ #fig:011 }
+
+12) В файле /etc/httpd/conf/httpd.conf заменяем строчку “Listen 80” на “Listen 81”, чтобы установить веб-сервер Apache на прослушивание TCP-порта 81:
+![Установка веб-сервера Apache на прослушивание TCP-порта 81](images/12.png){ #fig:012 }
+
+13) Перезапускаем веб-сервер Apache и анализируем лог-файлы командой:
+![Перезапуск веб-сервера и анализ лог-файлов](images/13.png){ #fig:013 }
+
+14) Просматриваем файлы “var/log/http/error_log”, “/var/log/http/access_log” и “/var/log/audit/audit.log” и выясняем, что запись появилась в последнем файле:
+![Содержание файла var/log/audit/audit.log](images/14.png){ #fig:014 }
+
+15) Убеждаемся, что порт TCP-81 установлен. Проверяем список портов, убеждаемся, что порт 81 есть в списке и запускаем веб-сервер Apache снова:
+![Проверка установки порта 81](images/15.png){ #fig:015 }
+
+16) Вернём контекст “httpd_sys_cоntent_t” файлу “/var/www/html/test.html” и после этого пробуем получить доступ к файлу через веб-сервер, введя адрес “http://127.0.0.1:81/test.html”, в результате чего увидим содежимое файла - слово “test”:
+![Возвращение исходного контекста файлу](images/16.png){ #fig:016 }
+![Обращение к файлу через веб-сервер](images/17.png){ #fig:017 }
+
+17) Исправим обратно конфигурационный файл apache, вернув “Listen 80”. Попытаемся удалить привязку http_port к 81 порту, но этот порт определен на уровне политики, поэтому его нельзя удалить:
+![Возвращение Listen 80 и попытка удалить порт 81](images/18.png){ #fig:018 }
+
+18) Удаляем файл “/var/www/html/test.html”:
+![Удаление файла test.html](images/19.png){ #fig:019 }
+
+# Выводы
+В ходе выполнения данной лабораторной работы я развила навыки администрирования ОС Linux, получила первое практическое знакомство с технологией SELinux и проверила работу SELinux на практике совместно с веб-сервером Apache.
